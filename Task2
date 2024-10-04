@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8, #e2e7ea);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 12px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .weather-result, .forecast {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #e7f3ff;
+            border-radius: 8px;
+            border: 1px solid #b0d4ff;
+        }
+        .forecast-day {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        @media (max-width: 600px) {
+            input[type="text"] {
+                width: 60%;
+            }
+            button {
+                width: 30%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Forecast</h1>
+        <input type="text" id="city" placeholder="Enter city name" />
+        <button id="getWeather">Get Weather</button>
+        <button id="getCurrentLocation">Use Current Location</button>
+        <div id="weatherResult" class="weather-result"></div>
+        <div id="forecastResult" class="forecast"></div>
+    </div>
+    <script>
+        document.getElementById("getWeather").addEventListener("click", getWeather);
+        document.getElementById("getCurrentLocation").addEventListener("click", getCurrentLocation);
+
+        const apiKey = "237597d02df28f4e03766b89f77bcee2"; // Your OpenWeatherMap API key
+
+        async function getWeather() {
+            const city = document.getElementById("city").value;
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+            const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("City not found");
+
+                const data = await response.json();
+                displayWeather(data);
+                getForecast(data.coord.lat, data.coord.lon); // Get 5-day forecast
+                getAirQuality(data.coord.lat, data.coord.lon); // Get air quality
+            } catch (error) {
+                document.getElementById("weatherResult").innerHTML = `<p style="color: red;">${error.message}</p>`;
+                document.getElementById("forecastResult").innerHTML = '';
+            }
+        }
+
+        function displayWeather(data) {
+            const weatherResult = document.getElementById("weatherResult");
+            const { name } = data;
+            const { main, weather } = data;
+
+            weatherResult.innerHTML = `
+                <h2>Weather in ${name}</h2>
+                <p><strong>Temperature:</strong> ${main.temp}°C</p>
+                <p><strong>Weather:</strong> ${weather[0].description}</p>
+                <p><strong>Humidity:</strong> ${main.humidity}%</p>
+            `;
+        }
+
+        async function getForecast(lat, lon) {
+            const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+            
+            try {
+                const response = await fetch(forecastUrl);
+                if (!response.ok) throw new Error("Unable to fetch forecast data");
+
+                const forecastData = await response.json();
+                displayForecast(forecastData);
+            } catch (error) {
+                document.getElementById("forecastResult").innerHTML = `<p style="color: red;">${error.message}</p>`;
+            }
+        }
+
+        function displayForecast(data) {
+            const forecastResult = document.getElementById("forecastResult");
+            forecastResult.innerHTML = '<h2>5-Day Forecast</h2>';
+            const days = data.list.filter((entry) => entry.dt_txt.includes("12:00:00")); // Get daily forecast at noon
+
+            days.forEach(day => {
+                const { dt, main, weather } = day;
+                const date = new Date(dt * 1000).toLocaleDateString();
+                forecastResult.innerHTML += `
+                    <div class="forecast-day">
+                        <strong>${date}</strong>: 
+                        Temperature: ${main.temp}°C, Weather: ${weather[0].description}
+                    </div>
+                `;
+            });
+        }
+
+        async function getAirQuality(lat, lon) {
+            const airQualityUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+
+            try {
+                const response = await fetch(airQualityUrl);
+                if (!response.ok) throw new Error("Unable to fetch air quality data");
+
+                const airQualityData = await response.json();
+                displayAirQuality(airQualityData);
+            } catch (error) {
+                document.getElementById("weatherResult").innerHTML += `<p style="color: red;">${error.message}</p>`;
+            }
+        }
+
+        function displayAirQuality(data) {
+            const airQuality = data.list[0].main.aqi;
+            const airQualityResult = document.getElementById("weatherResult");
+            let airQualityText;
+
+            switch (airQuality) {
+                case 1:
+                    airQualityText = "Good";
+                    break;
+                case 2:
+                    airQualityText = "Fair";
+                    break;
+                case 3:
+                    airQualityText = "Moderate";
+                    break;
+                case 4:
+                    airQualityText = "Poor";
+                    break;
+                case 5:
+                    airQualityText = "Very Poor";
+                    break;
+                default:
+                    airQualityText = "Unknown";
+            }
+
+            airQualityResult.innerHTML += `<p><strong>Air Quality:</strong> ${airQualityText}</p>`;
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const { latitude, longitude } = position.coords;
+                    getWeatherByCoords(latitude, longitude);
+                }, () => {
+                    alert("Unable to retrieve your location.");
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        async function getWeatherByCoords(lat, lon) {
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("Unable to fetch weather data");
+
+                const data = await response.json();
+                displayWeather(data);
+                getForecast(lat, lon); // Get 5-day forecast
+                getAirQuality(lat, lon); // Get air quality
+            } catch (error) {
+                document.getElementById("weatherResult").innerHTML = `<p style="color: red;">${error.message}</p>`;
+                document.getElementById("forecastResult").innerHTML = '';
+            }
+        }
+    </script>
+</body>
+</html>
